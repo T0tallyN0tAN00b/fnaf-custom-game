@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FNAF Office</title>
+  <style>
+    body {
+      margin: 0;
+      background-color: black;
+      color: white;
+      font-family: sans-serif;
+      overflow: hidden;
+    }
+    #office {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: url('office.jpg') center/cover no-repeat;
+    }
+    #cameraView {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-size: cover;
+      background-position: center;
+      display: none;
+    }
+    #animatronic {
+      position: absolute;
+      width: 300px;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+    }
+    #controls {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+    }
+    button {
+      margin: 5px;
+      padding: 10px;
+      font-size: 16px;
+    }
+    #power {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <div id="office">
+    <div id="cameraView"></div>
+    <img id="animatronic" src="freddy.png" alt="Freddy">
+    <div id="controls">
+      <button onclick="toggleCamera()">Toggle Camera</button>
+      <button onclick="toggleDoor()">Toggle Door</button>
+      <button onclick="toggleLight()">Toggle Light</button>
+    </div>
+    <div id="power">Power: 100%</div>
+  </div>
+
+  <script>
+    let cameraOn = false;
+    let doorClosed = false;
+    let lightOn = false;
+    let power = 100;
+    let animatronicVisible = false;
+
+    function toggleCamera() {
+      cameraOn = !cameraOn;
+      document.getElementById('cameraView').style.display = cameraOn ? 'block' : 'none';
+      document.getElementById('cameraView').style.backgroundImage = cameraOn ? "url('cam1.jpg')" : '';
+      usePower(5);
+      maybeShowAnimatronic();
+    }
+
+    function toggleDoor() {
+      doorClosed = !doorClosed;
+      usePower(3);
+    }
+
+    function toggleLight() {
+      lightOn = !lightOn;
+      usePower(2);
+      maybeShowAnimatronic();
+    }
+
+    function usePower(amount) {
+      power -= amount;
+      if (power < 0) power = 0;
+      document.getElementById('power').textContent = `Power: ${power}%`;
+      if (power === 0) triggerJumpScare();
+    }
+
+    function maybeShowAnimatronic() {
+      if (Math.random() < 0.3 && !animatronicVisible) {
+        animatronicVisible = true;
+        document.getElementById('animatronic').style.display = 'block';
+        setTimeout(() => {
+          triggerJumpScare();
+        }, 3000);
+      }
+    }
+
+    function triggerJumpScare() {
+      document.getElementById('animatronic').src = 'freddy-jumpscare.png';
+      document.getElementById('animatronic').style.display = 'block';
+      document.body.style.backgroundColor = 'red';
+      setTimeout(() => {
+        alert("YOU DIED!");
+        location.reload();
+      }, 1000);
+    }
+  </script>
+</body>
+</html>
