@@ -2,119 +2,104 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>FNAF Office</title>
+  <title>FNAF Shapes Demo</title>
   <style>
     body {
       margin: 0;
-      background-color: black;
+      background: black;
       color: white;
       font-family: sans-serif;
-      overflow: hidden;
+      text-align: center;
     }
-    #office {
-      position: relative;
-      width: 100vw;
-      height: 100vh;
-      background: url('office.jpg') center/cover no-repeat;
-    }
-    #cameraView {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background-size: cover;
-      background-position: center;
-      display: none;
-    }
-    #animatronic {
-      position: absolute;
-      width: 300px;
-      bottom: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      display: none;
+    canvas {
+      background: #111;
+      display: block;
+      margin: 20px auto;
+      border: 4px solid #444;
     }
     #controls {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
+      margin-top: 10px;
     }
     button {
       margin: 5px;
       padding: 10px;
       font-size: 16px;
     }
-    #power {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      font-size: 18px;
-    }
   </style>
 </head>
 <body>
-  <div id="office">
-    <div id="cameraView"></div>
-    <img id="animatronic" src="freddy.png" alt="Freddy">
-    <div id="controls">
-      <button onclick="toggleCamera()">Toggle Camera</button>
-      <button onclick="toggleDoor()">Toggle Door</button>
-      <button onclick="toggleLight()">Toggle Light</button>
-    </div>
-    <div id="power">Power: 100%</div>
+  <h1>FNAF Shapes Demo</h1>
+  <canvas id="gameCanvas" width="600" height="400"></canvas>
+  <div id="controls">
+    <button onclick="showOffice()">Office</button>
+    <button onclick="showCamera()">Camera</button>
+    <button onclick="showFreddy()">Freddy</button>
   </div>
 
   <script>
-    let cameraOn = false;
-    let doorClosed = false;
-    let lightOn = false;
-    let power = 100;
-    let animatronicVisible = false;
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
 
-    function toggleCamera() {
-      cameraOn = !cameraOn;
-      document.getElementById('cameraView').style.display = cameraOn ? 'block' : 'none';
-      document.getElementById('cameraView').style.backgroundImage = cameraOn ? "url('cam1.jpg')" : '';
-      usePower(5);
-      maybeShowAnimatronic();
+    function clearCanvas() {
+      ctx.fillStyle = "#111";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    function toggleDoor() {
-      doorClosed = !doorClosed;
-      usePower(3);
+    function showOffice() {
+      clearCanvas();
+      // Draw office walls
+      ctx.fillStyle = "#333";
+      ctx.fillRect(50, 50, 500, 300);
+      // Desk
+      ctx.fillStyle = "#555";
+      ctx.fillRect(200, 250, 200, 50);
+      // Door lights
+      ctx.fillStyle = "yellow";
+      ctx.fillRect(60, 60, 20, 20);
+      ctx.fillRect(520, 60, 20, 20);
+      ctx.fillStyle = "white";
+      ctx.fillText("Office View", 260, 30);
     }
 
-    function toggleLight() {
-      lightOn = !lightOn;
-      usePower(2);
-      maybeShowAnimatronic();
+    function showCamera() {
+      clearCanvas();
+      // Camera background
+      ctx.fillStyle = "#222";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Room outline
+      ctx.strokeStyle = "white";
+      ctx.strokeRect(100, 100, 400, 200);
+      // Animatronic silhouette
+      ctx.fillStyle = "purple";
+      ctx.fillRect(300, 180, 50, 100);
+      ctx.fillStyle = "white";
+      ctx.fillText("Camera View", 260, 30);
     }
 
-    function usePower(amount) {
-      power -= amount;
-      if (power < 0) power = 0;
-      document.getElementById('power').textContent = `Power: ${power}%`;
-      if (power === 0) triggerJumpScare();
+    function showFreddy() {
+      clearCanvas();
+      // Freddy body
+      ctx.fillStyle = "brown";
+      ctx.fillRect(250, 150, 100, 150);
+      // Head
+      ctx.fillRect(260, 80, 80, 70);
+      // Eyes
+      ctx.fillStyle = "white";
+      ctx.fillRect(275, 100, 15, 15);
+      ctx.fillRect(310, 100, 15, 15);
+      ctx.fillStyle = "black";
+      ctx.fillRect(280, 105, 5, 5);
+      ctx.fillRect(315, 105, 5, 5);
+      // Hat
+      ctx.fillStyle = "black";
+      ctx.fillRect(280, 60, 40, 20);
+      ctx.fillRect(290, 40, 20, 20);
+      ctx.fillStyle = "white";
+      ctx.fillText("Freddy Appears!", 250, 30);
     }
 
-    function maybeShowAnimatronic() {
-      if (Math.random() < 0.3 && !animatronicVisible) {
-        animatronicVisible = true;
-        document.getElementById('animatronic').style.display = 'block';
-        setTimeout(() => {
-          triggerJumpScare();
-        }, 3000);
-      }
-    }
-
-    function triggerJumpScare() {
-      document.getElementById('animatronic').src = 'freddy-jumpscare.png';
-      document.getElementById('animatronic').style.display = 'block';
-      document.body.style.backgroundColor = 'red';
-      setTimeout(() => {
-        alert("YOU DIED!");
-        location.reload();
-      }, 1000);
-    }
+    // Start with office view
+    showOffice();
   </script>
 </body>
 </html>
