@@ -1,243 +1,474 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>FNAF Ultra Shapes Demo</title>
+  <meta charset="UTF-8" />
+  <title>FNAF Shapes — Alive Demo</title>
   <style>
     body {
       margin: 0;
-      background: black;
-      color: white;
-      font-family: sans-serif;
+      background: #000;
+      color: #eee;
+      font-family: system-ui, sans-serif;
       text-align: center;
     }
-    canvas {
-      background: #111;
-      display: block;
-      margin: 20px auto;
-      border: 4px solid #444;
-    }
-    #controls {
-      margin-top: 10px;
+    #hud {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 10px 0;
     }
     button {
-      margin: 5px;
-      padding: 10px;
-      font-size: 16px;
+      background: #222;
+      color: #eee;
+      border: 1px solid #555;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    button:hover { background: #333; }
+    #topbar {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-top: 6px;
+      font-size: 14px;
+    }
+    canvas {
+      display: block;
+      margin: 12px auto;
+      border: 4px solid #444;
+      background: #111;
     }
   </style>
 </head>
 <body>
-  <h1>FNAF Ultra Shapes Demo</h1>
-  <canvas id="gameCanvas" width="1000" height="700"></canvas>
-  <div id="controls">
-    <button onclick="showOffice()">Office</button>
-    <button onclick="showCamera()">Camera</button>
-    <button onclick="toggleLight()">Toggle Light</button>
+  <h1>FNAF Shapes — Alive Demo</h1>
+
+  <div id="topbar">
+    <div>Mode: <span id="modeLabel">Office</span></div>
+    <div>Power: <span id="powerLabel">100%</span></div>
+    <div>Camera: <span id="cameraLabel">CAM 1A</span></div>
+    <div>Status: <span id="statusLabel">OK</span></div>
   </div>
 
-  <script>
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-    let lightOn = false;
+  <div id="hud">
+    <button id="btnOffice">Office</button>
+    <button id="btnCamera">Cameras</button>
+    <button id="btnCycleCam">Cycle Camera</button>
+    <button id="btnLight">Toggle Light</button>
+    <button id="btnDoorL">Left Door</button>
+    <button id="btnDoorR">Right Door</button>
+  </div>
 
-    function clearCanvas() {
-      ctx.fillStyle = "#111";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+  <canvas id="game" width="1100" height="700"></canvas>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    // UI state
+    let mode = 'office'; // 'office' | 'camera'
+    let currentCamIndex = 0; // 0..3
+    let lightOn = false;
+    let doorLeftClosed = false;
+    let doorRightClosed = false;
+
+    // Power system
+    let power = 100; // percentage
+    let blackout = false;
+
+    // Visual noise and events
+    let staticAlpha = 0;
+    let flicker = 0;
+
+    // Animatronics (Freddy path from CAM 1A -> 1B -> 2A -> Office)
+    const freddy = {
+      stage: 0, // 0:1A, 1:1B, 2:2A, 3:Office door, 4:Inside office (scare)
+      timer: 0,
+      speedRange: [6000, 12000], // ms between moves
+      positionOfficeX: 500, // draw position when near office
+      visibleInOffice: false
+    };
+
+    // Cameras list (IDs and names)
+    const cams = [
+      { id: 'CAM 1A', clutter: 5 },
+      { id: 'CAM 1B', clutter: 8 },
+      { id: 'CAM 2A', clutter: 10 },
+      { id: 'CAM 3',  clutter: 6 },
+    ];
+
+    // Labels
+    const modeLabel = document.getElementById('modeLabel');
+    const powerLabel = document.getElementById('powerLabel');
+    const cameraLabel = document.getElementById('cameraLabel');
+    const statusLabel = document.getElementById('statusLabel');
+
+    // Buttons
+    document.getElementById('btnOffice').onclick = () => setMode('office');
+    document.getElementById('btnCamera').onclick = () => setMode('camera');
+    document.getElementById('btnCycleCam').onclick = () => {
+      currentCamIndex = (currentCamIndex + 1) % cams.length;
+      cameraLabel.textContent = cams[currentCamIndex].id;
+      bumpStatic();
+    };
+    document.getElementById('btnLight').onclick = () => {
+      if (!blackout) {
+        lightOn = !lightOn;
+        if (mode === 'office') flicker = lightOn ? 2 : 0;
+      }
+    };
+    document.getElementById('btnDoorL').onclick = () => {
+      doorLeftClosed = !doorLeftClosed;
+    };
+    document.getElementById('btnDoorR').onclick = () => {
+      doorRightClosed = !doorRightClosed;
+    };
+
+    function setMode(m) {
+      mode = m;
+      modeLabel.textContent = m === 'office' ? 'Office' : 'Cameras';
+      bumpStatic();
     }
 
-    function showOffice() {
-      clearCanvas();
+    function bumpStatic() {
+      staticAlpha = 0.35 + Math.random() * 0.35;
+    }
 
-      // Walls
-      ctx.fillStyle = "#333";
-      ctx.fillRect(50, 50, 900, 600);
+    // Power drain calculation per tick
+    function drainPower(dt) {
+      if (blackout) return;
+      let base = 0.02; // base drain
+      if (mode === 'camera') base += 0.06; // camera usage
+      if (lightOn) base += 0.08; // light drain
+      if (doorLeftClosed) base += 0.07; // door motor drain
+      if (doorRightClosed) base += 0.07; // door motor drain
+      // flicker causes tiny extra drain
+      if (flicker > 0) base += 0.02;
 
-      // Floor tiles
-      ctx.strokeStyle = "#222";
-      for (let i = 50; i < 950; i += 40) {
-        ctx.beginPath();
-        ctx.moveTo(i, 50);
-        ctx.lineTo(i, 650);
-        ctx.stroke();
+      // dt in ms -> convert to seconds scale
+      const drain = base * (dt / 1000) * 100; // relative scaling
+      power = Math.max(0, power - drain);
+      powerLabel.textContent = `${power.toFixed(0)}%`;
+
+      if (power <= 0 && !blackout) {
+        blackout = true;
+        statusLabel.textContent = 'BLACKOUT';
+        lightOn = false;
+        doorLeftClosed = false;
+        doorRightClosed = false;
+        // Trigger jump scare after short delay
+        setTimeout(() => {
+          freddy.stage = 4;
+          freddy.visibleInOffice = true;
+        }, 1500);
       }
-      for (let j = 50; j < 650; j += 40) {
-        ctx.beginPath();
-        ctx.moveTo(50, j);
-        ctx.lineTo(950, j);
-        ctx.stroke();
+    }
+
+    // Freddy progression logic
+    function updateFreddy(dt) {
+      freddy.timer -= dt;
+      if (freddy.timer <= 0 && freddy.stage < 4) {
+        // Try to advance
+        const nextStage = freddy.stage + 1;
+
+        // If next is office door (stage 3), check doors
+        if (nextStage === 3) {
+          // If a door is closed, Freddy waits or reroutes (simple delay)
+          if (doorLeftClosed || doorRightClosed) {
+            freddy.timer = randIn(freddy.speedRange[0], freddy.speedRange[1]);
+          } else {
+            freddy.stage = nextStage;
+            freddy.timer = randIn(3000, 6000);
+          }
+        } else {
+          freddy.stage = nextStage;
+          freddy.timer = randIn(freddy.speedRange[0], freddy.speedRange[1]);
+        }
       }
 
-      // Desk
-      ctx.fillStyle = "#555";
-      ctx.fillRect(350, 500, 300, 100);
+      // If in office (stage 3) and light is on, he becomes visible
+      freddy.visibleInOffice = (freddy.stage >= 3 && lightOn) || (blackout && freddy.stage >= 3);
+    }
 
-      // Monitors
-      ctx.fillStyle = "#222";
-      ctx.fillRect(370, 420, 120, 70);
-      ctx.fillRect(510, 420, 120, 70);
+    function randIn(a, b) { return a + Math.random() * (b - a); }
 
-      // Fan
-      ctx.strokeStyle = "gray";
-      ctx.beginPath();
-      ctx.arc(500, 350, 40, 0, Math.PI * 2);
-      ctx.stroke();
-      for (let i = 0; i < 6; i++) {
-        ctx.beginPath();
-        ctx.moveTo(500, 350);
-        ctx.lineTo(500 + 40 * Math.cos(i * Math.PI/3), 350 + 40 * Math.sin(i * Math.PI/3));
-        ctx.stroke();
+    // Static overlay
+    function drawStatic() {
+      if (staticAlpha <= 0) return;
+      ctx.save();
+      ctx.globalAlpha = staticAlpha;
+      for (let i = 0; i < 120; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const w = 2 + Math.random() * 6;
+        const h = 1 + Math.random() * 3;
+        ctx.fillStyle = `rgb(${150+Math.random()*100},${150+Math.random()*100},${150+Math.random()*100})`;
+        ctx.fillRect(x, y, w, h);
+      }
+      ctx.restore();
+      staticAlpha = Math.max(0, staticAlpha - 0.02);
+    }
+
+    // Light flicker effect
+    function applyFlicker() {
+      if (flicker > 0) {
+        flicker -= 0.03;
+      }
+    }
+
+    // Draw helpers
+    function fillRect(x,y,w,h,color){ ctx.fillStyle=color; ctx.fillRect(x,y,w,h); }
+    function strokeRect(x,y,w,h,color, lw=1){ ctx.strokeStyle=color; ctx.lineWidth=lw; ctx.strokeRect(x,y,w,h); }
+    function circle(x,y,r,color){ ctx.fillStyle=color; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); }
+    function line(x1,y1,x2,y2,color,lw=1){ ctx.strokeStyle=color; ctx.lineWidth=lw; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); }
+
+    // OFFICE DRAW — many shapes
+    function drawOffice() {
+      // Background walls
+      fillRect(40,40,1020,620,'#2b2b2b');
+
+      // Floor tiles grid
+      ctx.strokeStyle = '#1a1a1a';
+      for (let x=60; x<1040; x+=40) { line(x,60,x,640,'#1a1a1a'); }
+      for (let y=60; y<640; y+=40) { line(60,y,1040,y,'#1a1a1a'); }
+
+      // Ceiling beams
+      fillRect(60,60,980,14,'#3c3c3c');
+      fillRect(60,626,980,14,'#3c3c3c');
+
+      // Vents
+      fillRect(160,80,120,44,'#666');
+      fillRect(840,80,120,44,'#666');
+      for (let i=0;i<5;i++){
+        line(170,86+i*8,270,86+i*8,'#555',2);
+        line(850,86+i*8,950,86+i*8,'#555',2);
       }
 
       // Posters
-      ctx.fillStyle = "blue";
-      ctx.fillRect(80, 80, 80, 120);
-      ctx.fillStyle = "red";
-      ctx.fillRect(840, 80, 80, 120);
-      ctx.fillStyle = "green";
-      ctx.fillRect(80, 250, 80, 120);
+      fillRect(90,140,80,110,'#2f6bd1');
+      fillRect(930,140,80,110,'#d12f2f');
+      fillRect(90,270,80,110,'#2fd145');
 
       // Wires
-      ctx.strokeStyle = "black";
-      ctx.beginPath();
-      ctx.moveTo(100, 60);
-      ctx.lineTo(200, 200);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(900, 60);
-      ctx.lineTo(800, 200);
-      ctx.stroke();
+      line(120,80,240,200,'#000',3);
+      line(980,80,860,200,'#000',3);
+      line(300,90,360,180,'#000',2);
+      line(800,90,740,180,'#000',2);
 
-      // Ceiling beams
-      ctx.fillStyle = "#444";
-      ctx.fillRect(50, 50, 900, 20);
-      ctx.fillRect(50, 630, 900, 20);
+      // Desk top and legs
+      fillRect(380,480,340,110,'#565656');
+      fillRect(380,580,20,60,'#4a4a4a');
+      fillRect(700,580,20,60,'#4a4a4a');
 
-      // Doors
-      ctx.strokeStyle = "white";
-      ctx.lineWidth = 4;
-      ctx.strokeRect(60, 250, 40, 200); // left door
-      ctx.strokeRect(900, 250, 40, 200); // right door
+      // Monitors
+      fillRect(400,410,140,80,'#1e1e1e');
+      fillRect(560,410,140,80,'#1e1e1e');
+      // Monitor bezels and glow
+      strokeRect(400,410,140,80,'#444',2);
+      strokeRect(560,410,140,80,'#444',2);
+      circle(410,420,3,'#69f');
+      circle(570,420,3,'#69f');
 
-      // Ceiling light
-      ctx.fillStyle = lightOn ? "yellow" : "#222";
-      ctx.beginPath();
-      ctx.arc(500, 150, 50, 0, Math.PI * 2);
-      ctx.fill();
+      // Keyboard
+      fillRect(420,505,260,24,'#3b3b3b');
+      for(let i=0;i<14;i++){ fillRect(425+i*18,508,14,8,'#5a5a5a'); }
 
-      // Vents
-      ctx.fillStyle = "#666";
-      ctx.fillRect(200, 80, 100, 40);
-      ctx.fillRect(700, 80, 100, 40);
+      // Desk buttons and toggles
+      circle(410,560,10,'#d12f2f');
+      circle(440,560,10,'#2fd145');
+      circle(470,560,10,'#f5e04a');
 
-      // Shelves
-      ctx.fillStyle = "#555";
-      ctx.fillRect(150, 400, 100, 20);
-      ctx.fillRect(750, 400, 100, 20);
+      // Fan
+      ctx.strokeStyle='gray';
+      ctx.beginPath(); ctx.arc(540,350,40,0,Math.PI*2); ctx.stroke();
+      for(let i=0;i<6;i++){ line(540,350,540+40*Math.cos(i*Math.PI/3),350+40*Math.sin(i*Math.PI/3),'gray',2); }
+      fillRect(536,388,8,20,'#555');
 
-      // Buttons on desk
-      ctx.fillStyle = "red";
-      ctx.beginPath();
-      ctx.arc(380, 550, 15, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "green";
-      ctx.beginPath();
-      ctx.arc(420, 550, 15, 0, Math.PI * 2);
-      ctx.fill();
+      // Shelves and clutter
+      fillRect(160,420,120,16,'#555');
+      fillRect(820,420,120,16,'#555');
+      fillRect(170,436,30,30,'#696969');
+      fillRect(850,436,36,24,'#696969');
+      fillRect(210,436,22,28,'#7a7a7a');
 
-      // Text
-      ctx.fillStyle = "white";
-      ctx.fillText("Office View", 480, 40);
+      // Potted plant (shape)
+      fillRect(760,470,36,24,'#6b4b2c');
+      circle(778,468,14,'#2f8d3d');
+      circle(792,462,12,'#2f8d3d');
+      circle(766,462,10,'#2f8d3d');
 
-      // Freddy appears if light is on
+      // Doors (left/right) — closed/ open
+      strokeRect(70,260,46,220,'#ddd',4);
+      strokeRect(984,260,46,220,'#ddd',4);
+      // Door fill when closed
+      if (doorLeftClosed) fillRect(72,262,42,216,'#202020');
+      if (doorRightClosed) fillRect(986,262,42,216,'#202020');
+
+      // Ceiling light (flicker effect)
+      const lightColor = lightOn ? '#ffd54a' : '#222';
+      circle(550,160,48,lightColor);
       if (lightOn) {
-        drawFreddy(450, 300);
+        ctx.save();
+        ctx.globalAlpha = 0.08 + (flicker>0 ? 0.08*Math.random() : 0);
+        fillRect(60,200,980,280,'#fff8c2');
+        ctx.restore();
+      }
+
+      // Text labels
+      ctx.fillStyle='#eee';
+      ctx.fillText('Office View', 520, 34);
+
+      // Freddy near office if stage >=3 and revealed by light
+      if (freddy.visibleInOffice) {
+        drawFreddy(520, 330);
       }
     }
 
-    function showCamera() {
-      clearCanvas();
+    // CAMERA DRAW — multiple rooms rich with shapes
+    function drawCamera() {
+      fillRect(80,80,940,540,'#1e1e1e');
 
-      // Room outline
-      ctx.strokeStyle = "white";
-      ctx.lineWidth = 3;
-      ctx.strokeRect(150, 100, 700, 500);
+      // Camera frame and ID
+      strokeRect(80,80,940,540,'#666',3);
+      ctx.fillStyle = '#eee';
+      ctx.fillText(cams[currentCamIndex].id, 540, 70);
+
+      // Room scaffolding
+      strokeRect(120,120,860,480,'#999',2);
+      fillRect(120,580,860,20,'#232323');
+      // Pipes (top, bottom)
+      line(140,140,940,140,'#676767',10);
+      line(140,560,940,560,'#676767',10);
+
+      // Shelves
+      fillRect(170,220,200,18,'#494949');
+      fillRect(740,220,200,18,'#494949');
 
       // Crates
-      ctx.fillStyle = "#444";
-      ctx.fillRect(180, 120, 120, 100);
-      ctx.fillRect(720, 120, 120, 100);
+      fillRect(200,260,120,90,'#4a4a4a'); strokeRect(200,260,120,90,'#7b7b7b',2);
+      fillRect(780,260,120,90,'#4a4a4a'); strokeRect(780,260,120,90,'#7b7b7b',2);
 
-      // Pipes
-      ctx.strokeStyle = "#666";
-      ctx.lineWidth = 10;
-      ctx.beginPath();
-      ctx.moveTo(200, 580);
-      ctx.lineTo(800, 580);
-      ctx.stroke();
+      // Barrel cluster
+      circle(500,520,22,'#3f3f3f');
+      circle(540,520,22,'#3f3f3f');
+      circle(520,500,22,'#3f3f3f');
+      strokeRect(480,492,84,60,'#6b6b6b',2);
 
-      // Shelves
-      ctx.fillStyle = "#555";
-      ctx.fillRect(250, 200, 150, 20);
-      ctx.fillRect(600, 200, 150, 20);
+      // Vent and grates
+      fillRect(860,140,90,44,'#656565');
+      for (let i=0;i<5;i++){ line(866,146+i*8,944,146+i*8,'#555',2); }
 
-      // Clutter
-      ctx.fillStyle = "#777";
-      ctx.fillRect(300, 300, 60, 40);
-      ctx.fillRect(600, 350, 80, 50);
-      ctx.fillRect(400, 450, 100, 60);
-
-      // Animatronic silhouette
-      ctx.fillStyle = "purple";
-      ctx.fillRect(460, 250, 100, 200);
-
-      // Text
-      ctx.fillStyle = "white";
-      ctx.fillText("Camera View", 480, 80);
-    }
-
-    function toggleLight() {
-      lightOn = !lightOn;
-      showOffice();
-    }
-
-    function drawFreddy(x, y) {
-      // Body
-      ctx.fillStyle = "brown";
-      ctx.fillRect(x, y, 120, 180);
-
-      // Head
-      ctx.fillRect(x + 20, y - 100, 80, 80);
-
-      // Eyes
-      ctx.fillStyle = "white";
-      ctx.fillRect(x + 30, y - 80, 20, 20);
-      ctx.fillRect(x + 70, y - 80, 20, 20);
-      ctx.fillStyle = "black";
-      ctx.fillRect(x + 35, y - 75, 10, 10);
-      ctx.fillRect(x + 75, y - 75, 10, 10);
-
-      // Hat
-      ctx.fillStyle = "black";
-      ctx.fillRect(x + 40, y - 120, 40, 20);
-      ctx.fillRect(x + 50, y - 140, 20, 20);
-
-      // Arms
-      ctx.fillStyle = "brown";
-      ctx.fillRect(x - 40, y + 20, 40, 120);
-      ctx.fillRect(x + 120, y + 20, 40, 120);
-
-      // Legs
-      ctx.fillRect(x + 20, y + 180, 30, 60);
-      ctx.fillRect(x + 70, y + 180, 30, 60);
-
-      // Buttons
-      ctx.fillStyle = "black";
-      for (let i = 0; i < 4; i++) {
-        ctx.beginPath();
-        ctx.arc(x + 60, y + 40 + i*25, 8, 0, Math.PI * 2);
-        ctx.fill();
+      // Random clutter based on cam
+      for (let i=0;i<cams[currentCamIndex].clutter; i++) {
+        const rx = 160 + Math.random()*760;
+        const ry = 180 + Math.random()*360;
+        const w = 20 + Math.random()*60;
+        const h = 10 + Math.random()*40;
+        fillRect(rx, ry, w, h, ['#505050','#5a5a5a','#606060'][Math.floor(Math.random()*3)]);
       }
+
+      // Animatronic silhouettes vary by cam and Freddy stage
+      if (currentCamIndex === 0 && freddy.stage === 0) drawSilhouette(500, 320, 90, 160, '#582f8e');
+      if (currentCamIndex === 1 && freddy.stage === 1) drawSilhouette(740, 320, 90, 160, '#582f8e');
+      if (currentCamIndex === 2 && freddy.stage === 2) drawSilhouette(360, 330, 90, 160, '#582f8e');
+
+      // Camera overlay HUD
+      drawCamHUD();
     }
 
-    // Start with office view
+    function drawCamHUD(){
+      // Corner brackets
+      strokeRect(96,96,120,80,'#888',2);
+      strokeRect(884,96,120,80,'#888',2);
+      strokeRect(96,532,120,80,'#888',2);
+      strokeRect(884,532,120,80,'#888',2);
+      // REC light
+      circle(160,110,6,'#d12f2f');
+      ctx.fillStyle='#d12f2f'; ctx.fillText('REC', 175, 114);
+      // Signal bar
+      for (let i=0;i<5;i++) fillRect(930+i*14,112- i*6,10,10+i*6,'#69f');
+    }
+
+    // Silhouette (simple animatronic form)
+    function drawSilhouette(x,y,w,h,color){
+      fillRect(x, y, w, h, color); // torso
+      fillRect(x+10, y-50, w-20, 50, color); // head
+      fillRect(x-20, y+10, 20, 110, color); // left arm
+      fillRect(x+w, y+10, 20, 110, color); // right arm
+      fillRect(x+10, y+h, 24, 40, color); // left leg
+      fillRect(x+w-34, y+h, 24, 40, color); // right leg
+    }
+
+    // Freddy detailed shape
+    function drawFreddy(x, y) {
+      // torso
+      fillRect(x, y, 120, 180, '#7a4a2a');
+      // head
+      fillRect(x+18, y-102, 84, 86, '#7a4a2a');
+      // eyes
+      fillRect(x+32, y-82, 22, 18, '#eee');
+      fillRect(x+72, y-82, 22, 18, '#eee');
+      fillRect(x+38, y-76, 8, 8, '#111');
+      fillRect(x+78, y-76, 8, 8, '#111');
+      // hat
+      fillRect(x+38, y-124, 44, 18, '#222');
+      fillRect(x+50, y-146, 20, 22, '#222');
+      // arms
+      fillRect(x-34, y+18, 34, 116, '#7a4a2a');
+      fillRect(x+120, y+18, 34, 116, '#7a4a2a');
+      // legs
+      fillRect(x+22, y+180, 28, 62, '#7a4a2a');
+      fillRect(x+70, y+180, 28, 62, '#7a4a2a');
+      // buttons
+      for(let i=0;i<4;i++){ circle(x+60, y+44+i*26, 7, '#222'); }
+      // mouth hint
+      fillRect(x+46, y-60, 28, 6, '#3a291a');
+    }
+
+    // Main loop
+    let last = performance.now();
+    function loop(now){
+      const dt = now - last; last = now;
+
+      drainPower(dt);
+      updateFreddy(dt);
+      applyFlicker();
+
+      // Draw
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      if (mode === 'office') drawOffice();
+      else drawCamera();
+
+      drawStatic();
+
+      // Jump scare condition
+      if (freddy.stage === 4) {
+        drawJumpScareOverlay();
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    function drawJumpScareOverlay(){
+      // big red flash and centered Freddy
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+      fillRect(0,0,canvas.width,canvas.height,'#8b0000');
+      ctx.restore();
+      drawFreddy(490, 260);
+      statusLabel.textContent = 'JUMPSCARE';
+    }
+
+    // Initialize
+    function init(){
+      cameraLabel.textContent = cams[currentCamIndex].id;
+      modeLabel.textContent = 'Office';
+      statusLabel.textContent = 'OK';
+      freddy.timer = randIn(freddy.speedRange[0], freddy.speedRange[1]);
+      requestAnimationFrame(loop);
+    }
+    init();
+  </script>
+</body>
+</html>
