@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>FNAF Shapes Demo</title>
+  <title>FNAF Shapes Complex Demo</title>
   <style>
     body {
       margin: 0;
@@ -28,17 +28,18 @@
   </style>
 </head>
 <body>
-  <h1>FNAF Shapes Demo</h1>
-  <canvas id="gameCanvas" width="600" height="400"></canvas>
+  <h1>FNAF Shapes Complex Demo</h1>
+  <canvas id="gameCanvas" width="800" height="500"></canvas>
   <div id="controls">
     <button onclick="showOffice()">Office</button>
     <button onclick="showCamera()">Camera</button>
-    <button onclick="showFreddy()">Freddy</button>
+    <button onclick="toggleLight()">Toggle Light</button>
   </div>
 
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
+    let lightOn = false;
 
     function clearCanvas() {
       ctx.fillStyle = "#111";
@@ -47,18 +48,39 @@
 
     function showOffice() {
       clearCanvas();
-      // Draw office walls
+      // Walls
       ctx.fillStyle = "#333";
-      ctx.fillRect(50, 50, 500, 300);
+      ctx.fillRect(50, 50, 700, 400);
+
       // Desk
       ctx.fillStyle = "#555";
-      ctx.fillRect(200, 250, 200, 50);
-      // Door lights
-      ctx.fillStyle = "yellow";
-      ctx.fillRect(60, 60, 20, 20);
-      ctx.fillRect(520, 60, 20, 20);
+      ctx.fillRect(250, 350, 300, 50);
+
+      // Monitors
+      ctx.fillStyle = "#222";
+      ctx.fillRect(270, 280, 100, 60);
+      ctx.fillRect(430, 280, 100, 60);
+
+      // Door outlines
+      ctx.strokeStyle = "white";
+      ctx.lineWidth = 4;
+      ctx.strokeRect(60, 150, 40, 200); // left door
+      ctx.strokeRect(700, 150, 40, 200); // right door
+
+      // Ceiling light
+      ctx.fillStyle = lightOn ? "yellow" : "#222";
+      ctx.beginPath();
+      ctx.arc(400, 100, 30, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Text
       ctx.fillStyle = "white";
-      ctx.fillText("Office View", 260, 30);
+      ctx.fillText("Office View", 370, 30);
+
+      // If light is on, show Freddy silhouette
+      if (lightOn) {
+        drawFreddy(360, 200);
+      }
     }
 
     function showCamera() {
@@ -66,36 +88,59 @@
       // Camera background
       ctx.fillStyle = "#222";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+
       // Room outline
       ctx.strokeStyle = "white";
-      ctx.strokeRect(100, 100, 400, 200);
+      ctx.lineWidth = 3;
+      ctx.strokeRect(150, 100, 500, 300);
+
+      // Random props
+      ctx.fillStyle = "#444";
+      ctx.fillRect(180, 120, 80, 60); // crate
+      ctx.fillRect(520, 120, 80, 60); // crate
+
       // Animatronic silhouette
       ctx.fillStyle = "purple";
-      ctx.fillRect(300, 180, 50, 100);
+      ctx.fillRect(370, 200, 60, 120);
+
       ctx.fillStyle = "white";
-      ctx.fillText("Camera View", 260, 30);
+      ctx.fillText("Camera View", 370, 50);
     }
 
-    function showFreddy() {
-      clearCanvas();
-      // Freddy body
+    function toggleLight() {
+      lightOn = !lightOn;
+      showOffice();
+    }
+
+    function drawFreddy(x, y) {
+      // Body
       ctx.fillStyle = "brown";
-      ctx.fillRect(250, 150, 100, 150);
+      ctx.fillRect(x, y, 80, 120);
+
       // Head
-      ctx.fillRect(260, 80, 80, 70);
+      ctx.fillRect(x + 10, y - 70, 60, 60);
+
       // Eyes
       ctx.fillStyle = "white";
-      ctx.fillRect(275, 100, 15, 15);
-      ctx.fillRect(310, 100, 15, 15);
+      ctx.fillRect(x + 20, y - 55, 15, 15);
+      ctx.fillRect(x + 45, y - 55, 15, 15);
       ctx.fillStyle = "black";
-      ctx.fillRect(280, 105, 5, 5);
-      ctx.fillRect(315, 105, 5, 5);
+      ctx.fillRect(x + 25, y - 50, 5, 5);
+      ctx.fillRect(x + 50, y - 50, 5, 5);
+
       // Hat
       ctx.fillStyle = "black";
-      ctx.fillRect(280, 60, 40, 20);
-      ctx.fillRect(290, 40, 20, 20);
-      ctx.fillStyle = "white";
-      ctx.fillText("Freddy Appears!", 250, 30);
+      ctx.fillRect(x + 20, y - 90, 40, 20);
+      ctx.fillRect(x + 30, y - 110, 20, 20);
+
+      // Arms
+      ctx.fillStyle = "brown";
+      ctx.fillRect(x - 20, y + 20, 20, 80);
+      ctx.fillRect(x + 80, y + 20, 20, 80);
+
+      // Legs
+      ctx.fillRect(x + 10, y + 120, 20, 40);
+      ctx.fillRect(x + 50, y + 120, 20, 40);
     }
 
     // Start with office view
@@ -103,3 +148,4 @@
   </script>
 </body>
 </html>
+
